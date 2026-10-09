@@ -25,15 +25,26 @@ export default function DashboardPage() {
       return;
     }
     setReady(true);
+    loadMeetings();
+  }, [router]);
 
-    // Load meetings
+  function loadMeetings() {
     const saved = JSON.parse(localStorage.getItem("hpf_meetings") || "[]");
     setMeetings(saved);
-  }, [router]);
+  }
 
   function handleLogout() {
     localStorage.removeItem("hpf_logged_in");
     router.push("/login");
+  }
+
+  function handleDelete(id: string) {
+    const confirmed = window.confirm("Delete this meeting?");
+    if (!confirmed) return;
+
+    const updated = meetings.filter((m) => m.id !== id);
+    localStorage.setItem("hpf_meetings", JSON.stringify(updated));
+    setMeetings(updated);
   }
 
   if (!ready) {
@@ -52,7 +63,7 @@ export default function DashboardPage() {
     );
   }
 
-  const upcoming = meetings.filter(m => m.status === "upcoming");
+  const upcoming = meetings.filter((m) => m.status === "upcoming");
 
   return (
     <main style={{
@@ -176,11 +187,11 @@ export default function DashboardPage() {
         borderRadius: "12px",
         padding: "20px"
       }}>
-        <div style={{ 
-          display: "flex", 
-          justifyContent: "space-between", 
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
           alignItems: "center",
-          marginBottom: "15px" 
+          marginBottom: "15px"
         }}>
           <div style={{ fontSize: "12px", color: "#d5a943" }}>
             UPCOMING MEETINGS
@@ -216,10 +227,43 @@ export default function DashboardPage() {
                 📅 {m.date} &nbsp; ⏰ {m.time}
               </p>
               {m.agenda && (
-                <p style={{ color: "#777", margin: 0, fontSize: "13px" }}>
+                <p style={{ color: "#777", margin: "0 0 12px", fontSize: "13px" }}>
                   {m.agenda}
                 </p>
               )}
+
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+                <Link
+                  href={`/meetings/edit?id=${m.id}`}
+                  style={{
+                    background: "#222",
+                    color: "#d5a943",
+                    border: "1px solid #444",
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    textDecoration: "none",
+                    fontSize: "12px",
+                    fontWeight: "600"
+                  }}
+                >
+                  Edit
+                </Link>
+                <button
+                  onClick={() => handleDelete(m.id)}
+                  style={{
+                    background: "#3a1515",
+                    color: "#ff6b6b",
+                    border: "1px solid #5a2222",
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    cursor: "pointer"
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           ))
         )}
