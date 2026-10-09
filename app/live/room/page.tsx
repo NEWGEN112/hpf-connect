@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -13,23 +13,22 @@ type Meeting = {
   status: string;
 };
 
+declare global {
+  interface Window {
+    JitsiMeetExternalAPI?: any;
+  }
+}
+
 function LiveRoomContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const id = searchParams.get("id");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const apiRef = useRef<any>(null);
 
   const [ready, setReady] = useState(false);
   const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [muted, setMuted] = useState(false);
-  const [joined, setJoined] = useState(true);
-
-  // Demo participants
-  const participants = [
-    { name: "You (Host)", speaking: !muted },
-    { name: "Pst. Michael Adebiyi", speaking: false },
-    { name: "General Secretary", speaking: false },
-    { name: "Programme Coordinator", speaking: false },
-  ];
+  const [status, setStatus] = useState("Connecting to live room...");
 
   useEffect(() => {
     const loggedIn = localStorage.getItem("hpf_logged_in");
@@ -51,10 +50,58 @@ function LiveRoomContent() {
     setReady(true);
   }, [id, router]);
 
-  function handleLeave() {
-    setJoined(false);
-    router.push("/live");
-  }
+  useEffect(() => {
+    if (!ready || !meeting || !containerRef.current) return;
+
+    let cancelled = false;
+
+    function startJitsi() {
+      if (cancelled || !containerRef.current || !window.JitsiMeetExternalAPI) return;
+
+      const roomName = `hpfconnect${meeting.id}`.replace(/[^a-zA-Z0-9]/g, "");
+
+      apiRef.current = new window.JitsiMeetExternalAPI("meet.jit.si", {
+        roomName,
+        parentNode: containerRef.current,
+        width: "100%",
+        height: "100%",
+        userInfo: {
+          displayName: "HPF Executive"
+        },
+        configOverwrite: {
+          startWithAudioMuted: false,
+          startWithVideoMuted: true,
+          prejoinPageEnabled: false,
+          disableDeepLinking: true
+        },
+        interfaceConfigOverwrite: {
+          MOBILE_APP_PROMO: false,
+          SHOW_CHROME_EXTENSION_BANNER: false
+        }
+      });
+
+      setStatus("Live — others with this same meeting can join and hear you.");
+    }
+
+    if (window.JitsiMeetExternalAPI) {
+      startJitsi();
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://meet.jit.si/external_api.js";
+      script.async = true;
+      script.onload = startJitsi;
+      script.onerror = () => setStatus("Could not connect to the live call service. Check your internet and try again.");
+      document.body.appendChild(script);
+    }
+
+    return () => {
+      cancelled = true;
+      if (apiRef.current) {
+        apiRef.current.dispose();
+        apiRef.current = null;
+      }
+    };
+  }, [ready, meeting]);
 
   if (!ready) {
     return (
@@ -82,7 +129,7 @@ function LiveRoomContent() {
         padding: "20px",
         textAlign: "center"
       }}>
-        <p style={{ marginBottom: "20px" }}>Meeting not found.</p>
+        <p style={{ marginBottom: "20px" }}>Meeting not found on this phone.</p>
         <Link href="/live" style={{ color: "#d5a943" }}>
           ← Back to Live
         </Link>
@@ -96,141 +143,36 @@ function LiveRoomContent() {
       background: "#0a0a0a",
       color: "white",
       fontFamily: "Arial, sans-serif",
-      padding: "20px",
       display: "flex",
       flexDirection: "column"
     }}>
-      {/* Header */}
       <div style={{
+        padding: "14px 16px",
+        borderBottom: "1px solid #222",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: "20px",
-        paddingBottom: "15px",
-        borderBottom: "1px solid #222"
+        gap: "10px"
       }}>
         <div>
-          <div style={{ fontSize: "10px", color: "#4ade80", marginBottom: "4px" }}>
-            ● LIVE
-          </div>
-          <h1 style={{ fontSize: "18px", margin: 0 }}>
-            {meeting.title}
-          </h1>
-          <p style={{ color: "#888", margin: "4px 0 0", fontSize: "12px" }}>
-            {meeting.date} · {meeting.time}
-          </p>
+          <div style={{ fontSize: "10px", color: "#4ade80" }}>● LIVE AUDIO</div>
+          <div style={{ fontSize: "16px", fontWeight: 700 }}>{meeting.title}</div>
+          <div style={{ fontSize: "12px", color: "#888" }}>{status}</div>
         </div>
-        <div style={{
-          background: "#1a1a1a",
-          padding: "6px 12px",
-          borderRadius: "20px",
-          fontSize: "12px",
-          color: "#aaa"
+        <Link href="/dashboard" style={{
+          color: "#d5a943",
+          textDecoration: "none",
+          fontSize: "13px",
+          whiteSpace: "nowrap"
         }}>
-          {participants.length} online
-        </div>
-      </div>
-
-      {/* Participants */}
-      <div style={{
-        flex: 1,
-        background: "#111",
-        border: "1px solid #2a2a2a",
-        borderRadius: "12px",
-        padding: "20px",
-        marginBottom: "20px"
-      }}>
-        <div style={{ fontSize: "12px", color: "#d5a943", marginBottom: "15px" }}>
-          PARTICIPANTS
-        </div>
-
-        {participants.map((p, i) => (
-          <div key={i} style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            padding: "12px 0",
-            borderBottom: i < participants.length - 1 ? "1px solid #222" : "none"
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <div style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "50%",
-                background: p.speaking ? "#d5a943" : "#2a2a2a",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                fontSize: "14px",
-                fontWeight: "700",
-                color: p.speaking ? "#111" : "#aaa"
-              }}>
-                {p.name.charAt(0)}
-              </div>
-              <span style={{ fontSize: "14px" }}>{p.name}</span>
-            </div>
-            {p.speaking && (
-              <span style={{ fontSize: "11px", color: "#4ade80" }}>Speaking</span>
-            )}
-          </div>
-        ))}
-
-        <p style={{
-          color: "#555",
-          fontSize: "12px",
-          marginTop: "20px",
-          textAlign: "center",
-          lineHeight: "1.5"
-        }}>
-          Demo mode — Real audio conference will be connected later.
-          <br />
-          Everyone can already use this room layout.
-        </p>
-      </div>
-
-      {/* Controls */}
-      <div style={{
-        display: "flex",
-        gap: "12px",
-        justifyContent: "center",
-        paddingBottom: "10px"
-      }}>
-        <button
-          onClick={() => setMuted(!muted)}
-          style={{
-            flex: 1,
-            maxWidth: "160px",
-            background: muted ? "#3a1515" : "#1a1a1a",
-            color: muted ? "#ff6b6b" : "white",
-            border: muted ? "1px solid #5a2222" : "1px solid #333",
-            padding: "16px",
-            borderRadius: "12px",
-            fontSize: "14px",
-            fontWeight: "600",
-            cursor: "pointer"
-          }}
-        >
-          {muted ? "🔇 Unmute" : "🎤 Mute"}
-        </button>
-
-        <button
-          onClick={handleLeave}
-          style={{
-            flex: 1,
-            maxWidth: "160px",
-            background: "#5a1515",
-            color: "white",
-            border: "1px solid #7a2222",
-            padding: "16px",
-            borderRadius: "12px",
-            fontSize: "14px",
-            fontWeight: "700",
-            cursor: "pointer"
-          }}
-        >
           Leave
-        </button>
+        </Link>
       </div>
+
+      <div
+        ref={containerRef}
+        style={{ flex: 1, minHeight: "70vh", background: "#000" }}
+      />
     </main>
   );
 }
@@ -253,4 +195,4 @@ export default function LiveRoomPage() {
       <LiveRoomContent />
     </Suspense>
   );
-        }
+}
