@@ -1,4 +1,43 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+
 export default function DashboardPage() {
+  const [ready, setReady] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const loggedIn = localStorage.getItem("hpf_logged_in");
+    if (loggedIn !== "true") {
+      router.push("/login");
+    } else {
+      setReady(true);
+    }
+  }, [router]);
+
+  function handleLogout() {
+    localStorage.removeItem("hpf_logged_in");
+    router.push("/login");
+  }
+
+  if (!ready) {
+    return (
+      <main style={{
+        minHeight: "100vh",
+        background: "#0a0a0a",
+        color: "white",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontFamily: "Arial, sans-serif"
+      }}>
+        Checking access...
+      </main>
+    );
+  }
+
   return (
     <main style={{
       minHeight: "100vh",
@@ -24,15 +63,20 @@ export default function DashboardPage() {
             Executive Dashboard
           </h1>
         </div>
-        <div style={{
-          background: "#1a1a1a",
-          padding: "8px 16px",
-          borderRadius: "20px",
-          fontSize: "13px",
-          color: "#aaa"
-        }}>
-          Executive
-        </div>
+        <button
+          onClick={handleLogout}
+          style={{
+            background: "#1a1a1a",
+            color: "#aaa",
+            border: "1px solid #333",
+            padding: "8px 16px",
+            borderRadius: "20px",
+            fontSize: "13px",
+            cursor: "pointer"
+          }}
+        >
+          Logout
+        </button>
       </div>
 
       {/* Welcome */}
@@ -133,4 +177,4 @@ export default function DashboardPage() {
       </div>
     </main>
   );
-        }
+}
