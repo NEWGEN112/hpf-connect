@@ -143,17 +143,18 @@ export default function DashboardPage() {
           <div style={{ fontSize: "13px", fontWeight: "600" }}>Schedule</div>
         </Link>
 
-        <div style={{
+        <Link href="/live" style={{
           background: "#111",
           border: "1px solid #2a2a2a",
           borderRadius: "12px",
           padding: "18px",
           textAlign: "center",
-          opacity: 0.6
+          textDecoration: "none",
+          color: "white"
         }}>
           <div style={{ fontSize: "22px", marginBottom: "6px" }}>🎙️</div>
           <div style={{ fontSize: "13px", fontWeight: "600" }}>Join Live</div>
-        </div>
+        </Link>
 
         <div style={{
           background: "#111",
@@ -232,7 +233,22 @@ export default function DashboardPage() {
                 </p>
               )}
 
-              <div style={{ display: "flex", gap: "10px", marginTop: "10px" }}>
+              <div style={{ display: "flex", gap: "10px", marginTop: "10px", flexWrap: "wrap" }}>
+                <Link
+                  href={`/live/room?id=${m.id}`}
+                  style={{
+                    background: "#d5a943",
+                    color: "#111",
+                    border: "none",
+                    padding: "8px 14px",
+                    borderRadius: "6px",
+                    textDecoration: "none",
+                    fontSize: "12px",
+                    fontWeight: "700"
+                  }}
+                >
+                  Join Live
+                </Link>
                 <Link
                   href={`/meetings/edit?id=${m.id}`}
                   style={{
@@ -270,4 +286,4 @@ export default function DashboardPage() {
       </div>
     </main>
   );
-}
+            }
