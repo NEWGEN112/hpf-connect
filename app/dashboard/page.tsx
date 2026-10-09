@@ -4,17 +4,31 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+type Meeting = {
+  id: string;
+  title: string;
+  date: string;
+  time: string;
+  agenda: string;
+  status: string;
+};
+
 export default function DashboardPage() {
   const [ready, setReady] = useState(false);
+  const [meetings, setMeetings] = useState<Meeting[]>([]);
   const router = useRouter();
 
   useEffect(() => {
     const loggedIn = localStorage.getItem("hpf_logged_in");
     if (loggedIn !== "true") {
       router.push("/login");
-    } else {
-      setReady(true);
+      return;
     }
+    setReady(true);
+
+    // Load meetings
+    const saved = JSON.parse(localStorage.getItem("hpf_meetings") || "[]");
+    setMeetings(saved);
   }, [router]);
 
   function handleLogout() {
@@ -38,6 +52,8 @@ export default function DashboardPage() {
     );
   }
 
+  const upcoming = meetings.filter(m => m.status === "upcoming");
+
   return (
     <main style={{
       minHeight: "100vh",
@@ -51,7 +67,7 @@ export default function DashboardPage() {
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
-        marginBottom: "40px",
+        marginBottom: "35px",
         paddingBottom: "20px",
         borderBottom: "1px solid #222"
       }}>
@@ -59,19 +75,20 @@ export default function DashboardPage() {
           <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#d5a943" }}>
             HPF CONNECT
           </div>
-          <h1 style={{ fontSize: "24px", margin: "5px 0 0" }}>
+          <h1 style={{ fontSize: "22px", margin: "5px 0 0" }}>
             Executive Dashboard
           </h1>
         </div>
         <button
           onClick={handleLogout}
           style={{
-            background: "#1a1a1a",
-            color: "#aaa",
-            border: "1px solid #333",
-            padding: "8px 16px",
-            borderRadius: "20px",
+            background: "#222",
+            color: "#fff",
+            border: "1px solid #444",
+            padding: "10px 18px",
+            borderRadius: "8px",
             fontSize: "13px",
+            fontWeight: "600",
             cursor: "pointer"
           }}
         >
@@ -84,10 +101,10 @@ export default function DashboardPage() {
         background: "#111",
         border: "1px solid #2a2a2a",
         borderRadius: "12px",
-        padding: "25px",
-        marginBottom: "25px"
+        padding: "22px",
+        marginBottom: "22px"
       }}>
-        <h2 style={{ margin: "0 0 8px", fontSize: "20px" }}>
+        <h2 style={{ margin: "0 0 6px", fontSize: "18px" }}>
           Welcome, Executive
         </h2>
         <p style={{ color: "#888", margin: 0, fontSize: "14px" }}>
@@ -99,81 +116,113 @@ export default function DashboardPage() {
       <div style={{
         display: "grid",
         gridTemplateColumns: "1fr 1fr",
-        gap: "15px",
-        marginBottom: "30px"
+        gap: "12px",
+        marginBottom: "25px"
       }}>
+        <Link href="/meetings/new" style={{
+          background: "#111",
+          border: "1px solid #2a2a2a",
+          borderRadius: "12px",
+          padding: "18px",
+          textAlign: "center",
+          textDecoration: "none",
+          color: "white"
+        }}>
+          <div style={{ fontSize: "22px", marginBottom: "6px" }}>📅</div>
+          <div style={{ fontSize: "13px", fontWeight: "600" }}>Schedule</div>
+        </Link>
+
         <div style={{
           background: "#111",
           border: "1px solid #2a2a2a",
           borderRadius: "12px",
-          padding: "20px",
-          textAlign: "center"
+          padding: "18px",
+          textAlign: "center",
+          opacity: 0.6
         }}>
-          <div style={{ fontSize: "24px", marginBottom: "8px" }}>📅</div>
-          <div style={{ fontSize: "14px", fontWeight: "600" }}>Meetings</div>
+          <div style={{ fontSize: "22px", marginBottom: "6px" }}>🎙️</div>
+          <div style={{ fontSize: "13px", fontWeight: "600" }}>Join Live</div>
         </div>
 
         <div style={{
           background: "#111",
           border: "1px solid #2a2a2a",
           borderRadius: "12px",
-          padding: "20px",
-          textAlign: "center"
+          padding: "18px",
+          textAlign: "center",
+          opacity: 0.6
         }}>
-          <div style={{ fontSize: "24px", marginBottom: "8px" }}>🎙️</div>
-          <div style={{ fontSize: "14px", fontWeight: "600" }}>Join Live</div>
+          <div style={{ fontSize: "22px", marginBottom: "6px" }}>📝</div>
+          <div style={{ fontSize: "13px", fontWeight: "600" }}>Minutes</div>
         </div>
 
         <div style={{
           background: "#111",
           border: "1px solid #2a2a2a",
           borderRadius: "12px",
-          padding: "20px",
-          textAlign: "center"
+          padding: "18px",
+          textAlign: "center",
+          opacity: 0.6
         }}>
-          <div style={{ fontSize: "24px", marginBottom: "8px" }}>📝</div>
-          <div style={{ fontSize: "14px", fontWeight: "600" }}>Minutes</div>
-        </div>
-
-        <div style={{
-          background: "#111",
-          border: "1px solid #2a2a2a",
-          borderRadius: "12px",
-          padding: "20px",
-          textAlign: "center"
-        }}>
-          <div style={{ fontSize: "24px", marginBottom: "8px" }}>🔔</div>
-          <div style={{ fontSize: "14px", fontWeight: "600" }}>Notifications</div>
+          <div style={{ fontSize: "22px", marginBottom: "6px" }}>🔔</div>
+          <div style={{ fontSize: "13px", fontWeight: "600" }}>Notifications</div>
         </div>
       </div>
 
-      {/* Upcoming Meeting */}
+      {/* Upcoming Meetings */}
       <div style={{
         background: "#111",
         border: "1px solid #2a2a2a",
         borderRadius: "12px",
         padding: "20px"
       }}>
-        <div style={{ fontSize: "12px", color: "#d5a943", marginBottom: "10px" }}>
-          UPCOMING MEETING
-        </div>
-        <h3 style={{ margin: "0 0 8px", fontSize: "18px" }}>
-          HPF Executive Meeting
-        </h3>
-        <p style={{ color: "#888", margin: "0 0 15px", fontSize: "14px" }}>
-          No upcoming meeting scheduled yet.
-        </p>
-        <button style={{
-          background: "#d5a943",
-          color: "#111",
-          border: "none",
-          padding: "10px 18px",
-          borderRadius: "6px",
-          fontWeight: "600",
-          fontSize: "13px"
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "15px" 
         }}>
-          Schedule Meeting
-        </button>
+          <div style={{ fontSize: "12px", color: "#d5a943" }}>
+            UPCOMING MEETINGS
+          </div>
+          <Link href="/meetings/new" style={{
+            background: "#d5a943",
+            color: "#111",
+            padding: "8px 14px",
+            borderRadius: "6px",
+            textDecoration: "none",
+            fontWeight: "700",
+            fontSize: "12px"
+          }}>
+            + Schedule
+          </Link>
+        </div>
+
+        {upcoming.length === 0 ? (
+          <p style={{ color: "#666", margin: 0, fontSize: "14px" }}>
+            No upcoming meeting scheduled yet.
+          </p>
+        ) : (
+          upcoming.map((m) => (
+            <div key={m.id} style={{
+              borderTop: "1px solid #222",
+              padding: "14px 0",
+              marginTop: "8px"
+            }}>
+              <h3 style={{ margin: "0 0 6px", fontSize: "16px" }}>
+                {m.title}
+              </h3>
+              <p style={{ color: "#aaa", margin: "0 0 4px", fontSize: "13px" }}>
+                📅 {m.date} &nbsp; ⏰ {m.time}
+              </p>
+              {m.agenda && (
+                <p style={{ color: "#777", margin: 0, fontSize: "13px" }}>
+                  {m.agenda}
+                </p>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </main>
   );
