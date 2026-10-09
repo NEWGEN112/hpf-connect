@@ -3,6 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+);
 
 type Meeting = {
   id: string;
@@ -10,24 +16,33 @@ type Meeting = {
   date: string;
   time: string;
   agenda: string;
+  join_code: string;
   status: string;
-  joinCode?: string;
 };
 
 export default function DashboardPage() {
+  const router = useRouter();
   const [ready, setReady] = useState(false);
   const [meetings, setMeetings] = useState<Meeting[]>([]);
-  const [copied, setCopied] = useState("");
-  const router = useRouter();
+  const [error, setError] = useState("");
+
+  async function loadMeetings() {
+    const { data, error } = await supabase
+      .from("meetings")
+      .select("*")
+      .eq("status", "upcoming")
+      .order("created_at", { ascending: false });
+    if (error) setError(error.message);
+    else setMeetings(data || []);
+  }
 
   useEffect(() => {
-    const loggedIn = localStorage.getItem("hpf_logged_in");
-    if (loggedIn !== "true") {
+    if (localStorage.getItem("hpf_logged_in") !== "true") {
       router.push("/login");
       return;
     }
     setReady(true);
-    setMeetings(JSON.parse(localStorage.getItem("hpf_meetings") || "[]"));
+    loadMeetings();
   }, [router]);
 
   function handleLogout() {
@@ -35,66 +50,45 @@ export default function DashboardPage() {
     router.push("/login");
   }
 
-  function handleDelete(id: string) {
-    if (!window.confirm("Delete this meeting?")) return;
-    const updated = meetings.filter((m) => m.id !== id);
-    localStorage.setItem("hpf_meetings", JSON.stringify(updated));
-    setMeetings(updated);
-  }
-
-  function shareCode(m: Meeting) {
-    const text = `HPF meeting: ${m.title}\nDate: ${m.date} ${m.time}\nJoin code: ${m.joinCode || "none"}\nOpen: https://hpf-connect-twzl.vercel.app/login`;
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(() => {
-        setCopied(m.id);
-        setTimeout(() => setCopied(""), 2000);
-      });
-    } else {
-      window.prompt("Copy this and send only to approved executives:", text);
-    }
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this meeting for everyone?")) return;
+    const { error } = await supabase.from("meetings").delete().eq("id", id);
+    if (error) setError(error.message);
+    else loadMeetings();
   }
 
   if (!ready) {
-    return <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Arial, sans-serif" }}>Checking access...</main>;
+    return <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading...</main>;
   }
-
-  const upcoming = meetings.filter((m) => m.status === "upcoming");
 
   return (
     <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", fontFamily: "Arial, sans-serif", padding: "20px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px", paddingBottom: "16px", borderBottom: "1px solid #222" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
         <div>
           <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#d5a943" }}>HPF CONNECT</div>
-          <h1 style={{ fontSize: "22px", margin: "5px 0 0" }}>Executive Dashboard</h1>
+          <h1 style={{ fontSize: "22px", margin: "4px 0 0" }}>Executive Dashboard</h1>
         </div>
-        <button onClick={handleLogout} style={{ background: "#222", color: "#fff", border: "1px solid #444", padding: "10px 16px", borderRadius: "8px", fontWeight: 600 }}>Logout</button>
+        <button onClick={handleLogout} style={{ background: "#222", color: "#fff", border: "1px solid #444", padding: "10px 14px", borderRadius: "8px" }}>Logout</button>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "22px" }}>
-        <Link href="/meetings/new" style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "12px", padding: "18px", textAlign: "center", textDecoration: "none", color: "white" }}>
-          <div style={{ fontSize: "22px" }}>📅</div><div style={{ fontSize: "13px", fontWeight: 600 }}>Schedule</div>
-        </Link>
-        <Link href="/live" style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "12px", padding: "18px", textAlign: "center", textDecoration: "none", color: "white" }}>
-          <div style={{ fontSize: "22px" }}>🎙️</div><div style={{ fontSize: "13px", fontWeight: 600 }}>Join Live</div>
-        </Link>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "18px" }}>
+        <Link href="/meetings/new" style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "12px", padding: "16px", textAlign: "center", color: "white", textDecoration: "none" }}>Schedule</Link>
+        <button onClick={loadMeetings} style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "12px", padding: "16px", color: "white" }}>Refresh</button>
       </div>
 
-      <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "12px", padding: "20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-          <div style={{ fontSize: "12px", color: "#d5a943" }}>UPCOMING MEETINGS</div>
-          <Link href="/meetings/new" style={{ background: "#d5a943", color: "#111", padding: "8px 12px", borderRadius: "6px", textDecoration: "none", fontWeight: 700, fontSize: "12px" }}>+ Schedule</Link>
-        </div>
-        {upcoming.length === 0 ? (
-          <p style={{ color: "#666", margin: 0 }}>No upcoming meeting yet.</p>
-        ) : upcoming.map((m) => (
-          <div key={m.id} style={{ borderTop: "1px solid #222", padding: "14px 0" }}>
+      {error && <p style={{ color: "#ff6b6b" }}>{error}</p>}
+
+      <div style={{ background: "#111", border: "1px solid #2a2a2a", borderRadius: "12px", padding: "16px" }}>
+        <div style={{ color: "#d5a943", fontSize: "12px", marginBottom: "10px" }}>SHARED MEETINGS</div>
+        {meetings.length === 0 ? (
+          <p style={{ color: "#666" }}>No meeting yet. Schedule one and every phone will see it after refresh.</p>
+        ) : meetings.map((m) => (
+          <div key={m.id} style={{ borderTop: "1px solid #222", padding: "12px 0" }}>
             <h3 style={{ margin: "0 0 6px", fontSize: "16px" }}>{m.title}</h3>
-            <p style={{ color: "#aaa", margin: "0 0 6px", fontSize: "13px" }}>📅 {m.date} · ⏰ {m.time}</p>
-            <p style={{ color: "#d5a943", margin: "0 0 10px", fontSize: "13px" }}>Join code: {m.joinCode || "Not set (old meeting)"}</p>
+            <p style={{ margin: "0 0 6px", color: "#aaa", fontSize: "13px" }}>{m.date} · {m.time}</p>
+            <p style={{ margin: "0 0 10px", color: "#d5a943", fontSize: "13px" }}>Join code: {m.join_code}</p>
             <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              <Link href={`/live/room?id=${m.id}`} style={{ background: "#d5a943", color: "#111", padding: "8px 12px", borderRadius: "6px", textDecoration: "none", fontSize: "12px", fontWeight: 700 }}>Join</Link>
-              <button onClick={() => shareCode(m)} style={{ background: "#222", color: "#fff", border: "1px solid #444", padding: "8px 12px", borderRadius: "6px", fontSize: "12px" }}>{copied === m.id ? "Copied" : "Share code"}</button>
-              <Link href={`/meetings/edit?id=${m.id}`} style={{ background: "#222", color: "#d5a943", border: "1px solid #444", padding: "8px 12px", borderRadius: "6px", textDecoration: "none", fontSize: "12px" }}>Edit</Link>
+              <Link href={`/live/room?id=${m.id}`} style={{ background: "#d5a943", color: "#111", padding: "8px 12px", borderRadius: "6px", textDecoration: "none", fontWeight: 700, fontSize: "12px" }}>Join</Link>
               <button onClick={() => handleDelete(m.id)} style={{ background: "#3a1515", color: "#ff6b6b", border: "1px solid #5a2222", padding: "8px 12px", borderRadius: "6px", fontSize: "12px" }}>Delete</button>
             </div>
           </div>
@@ -102,4 +96,4 @@ export default function DashboardPage() {
       </div>
     </main>
   );
-                   }
+}
