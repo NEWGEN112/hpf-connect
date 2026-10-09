@@ -23,16 +23,13 @@ declare global {
 function LiveRoomContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const id = searchParams.get("id");
+  const id = searchParams.get("id") || "";
   const containerRef = useRef<HTMLDivElement>(null);
   const apiRef = useRef<any>(null);
 
   const [ready, setReady] = useState(false);
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [code, setCode] = useState("");
-  const [approved, setApproved] = useState(false);
-  const [error, setError] = useState("");
-  const [status, setStatus] = useState("Waiting for approval code...");
+  const [title, setTitle] = useState("HPF Executive Meeting");
+  const [status, setStatus] = useState("Connecting to live call...");
 
   useEffect(() => {
     const loggedIn = localStorage.getItem("hpf_logged_in");
@@ -40,40 +37,25 @@ function LiveRoomContent() {
       router.push("/login");
       return;
     }
+
     if (!id) {
       setReady(true);
       return;
     }
+
     const meetings: Meeting[] = JSON.parse(localStorage.getItem("hpf_meetings") || "[]");
-    const found = meetings.find((m) => m.id === id) || null;
-    setMeeting(found);
-    if (found && !found.joinCode) setApproved(true);
+    const found = meetings.find((m) => m.id === id);
+    if (found) setTitle(found.title);
     setReady(true);
   }, [id, router]);
 
-  function approve(e: React.FormEvent) {
-    e.preventDefault();
-    if (!meeting?.joinCode) {
-      setApproved(true);
-      return;
-    }
-    if (code.trim().toUpperCase() === meeting.joinCode.toUpperCase()) {
-      setApproved(true);
-      setError("");
-      setStatus("Approved. Connecting to the live call...");
-    } else {
-      setError("Wrong join code. Only approved executives can enter.");
-    }
-  }
-
   useEffect(() => {
-    if (!approved || !meeting || !containerRef.current) return;
+    if (!ready || !id || !containerRef.current) return;
     let cancelled = false;
 
     function startJitsi() {
-      if (cancelled || !containerRef.current || !window.JitsiMeetExternalAPI || !meeting) return;
-      const secret = (meeting.joinCode || "open").toLowerCase();
-      const roomName = `hpf\( {meeting.id} \){secret}`.replace(/[^a-zA-Z0-9]/g, "");
+      if (cancelled || !containerRef.current || !window.JitsiMeetExternalAPI) return;
+      const roomName = `hpfconnectroom${id}`.replace(/[^a-zA-Z0-9]/g, "");
       apiRef.current = new window.JitsiMeetExternalAPI("meet.jit.si", {
         roomName,
         parentNode: containerRef.current,
@@ -91,7 +73,7 @@ function LiveRoomContent() {
           SHOW_CHROME_EXTENSION_BANNER: false
         }
       });
-      setStatus("Live. Only people with this join code can enter.");
+      setStatus("Live. Anyone with this link can join after login.");
     }
 
     if (window.JitsiMeetExternalAPI) startJitsi();
@@ -100,7 +82,7 @@ function LiveRoomContent() {
       script.src = "https://meet.jit.si/external_api.js";
       script.async = true;
       script.onload = startJitsi;
-      script.onerror = () => setStatus("Could not connect. Check internet and try again.");
+      script.onerror = () => setStatus("Could not connect. Check internet and refresh.");
       document.body.appendChild(script);
     }
 
@@ -111,33 +93,13 @@ function LiveRoomContent() {
         apiRef.current = null;
       }
     };
-  }, [approved, meeting]);
+  }, [ready, id]);
 
-  if (!ready) {
-    return <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Arial, sans-serif" }}>Loading...</main>;
-  }
-
-  if (!meeting) {
+  if (!id) {
     return (
       <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", fontFamily: "Arial, sans-serif", padding: "20px", textAlign: "center" }}>
-        <p>Meeting not found on this phone.</p>
-        <Link href="/dashboard" style={{ color: "#d5a943" }}>← Back</Link>
-      </main>
-    );
-  }
-
-  if (!approved) {
-    return (
-      <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", fontFamily: "Arial, sans-serif", padding: "20px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <form onSubmit={approve} style={{ width: "100%", maxWidth: "400px", background: "#111", border: "1px solid #2a2a2a", borderRadius: "16px", padding: "28px", textAlign: "center" }}>
-          <div style={{ fontSize: "11px", letterSpacing: "2px", color: "#d5a943", marginBottom: "10px" }}>PRESIDENT APPROVAL</div>
-          <h1 style={{ fontSize: "22px", margin: "0 0 8px" }}>{meeting.title}</h1>
-          <p style={{ color: "#888", fontSize: "14px", marginBottom: "20px" }}>Enter the join code shared by the president.</p>
-          <input value={code} onChange={(e) => setCode(e.target.value)} placeholder="Join code" style={{ width: "100%", padding: "14px", borderRadius: "8px", border: "1px solid #333", background: "#1a1a1a", color: "white", textAlign: "center", letterSpacing: "2px", marginBottom: "12px", boxSizing: "border-box" }} />
-          {error && <p style={{ color: "#ff6b6b", fontSize: "13px" }}>{error}</p>}
-          <button type="submit" style={{ width: "100%", background: "#d5a943", color: "#111", border: "none", padding: "14px", borderRadius: "8px", fontWeight: 700 }}>Enter Meeting</button>
-          <div style={{ marginTop: "16px" }}><Link href="/dashboard" style={{ color: "#888", fontSize: "13px" }}>Cancel</Link></div>
-        </form>
+        <p>No meeting link.</p>
+        <Link href="/dashboard" style={{ color: "#d5a943" }}>Back</Link>
       </main>
     );
   }
@@ -146,8 +108,8 @@ function LiveRoomContent() {
     <main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", fontFamily: "Arial, sans-serif", display: "flex", flexDirection: "column" }}>
       <div style={{ padding: "14px 16px", borderBottom: "1px solid #222", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <div style={{ fontSize: "10px", color: "#4ade80" }}>● APPROVED LIVE CALL</div>
-          <div style={{ fontSize: "16px", fontWeight: 700 }}>{meeting.title}</div>
+          <div style={{ fontSize: "10px", color: "#4ade80" }}>● LIVE CALL</div>
+          <div style={{ fontSize: "16px", fontWeight: 700 }}>{title}</div>
           <div style={{ fontSize: "12px", color: "#888" }}>{status}</div>
         </div>
         <Link href="/dashboard" style={{ color: "#d5a943", textDecoration: "none", fontSize: "13px" }}>Leave</Link>
@@ -159,8 +121,8 @@ function LiveRoomContent() {
 
 export default function LiveRoomPage() {
   return (
-    <Suspense fallback={<main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>Loading...</main>}>
+    <Suspense fallback={<main style={{ minHeight: "100vh", background: "#0a0a0a", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>Connecting...</main>}>
       <LiveRoomContent />
     </Suspense>
   );
-            }
+  }
